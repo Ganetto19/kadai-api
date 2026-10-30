@@ -71,12 +71,11 @@
 <script>
     const apiUrl = "/api/books";
 
-    function showMessage(message) {
-        document.getElementById("message").textContent = message;
-    }
-
     function getFormData() {
+        const id = document.getElementById("bookId").value;
+
         return {
+            id: id === "" ? null : Number(id),
             title: document.getElementById("title").value.trim(),
             author: document.getElementById("author").value.trim(),
             genre: document.getElementById("genre").value.trim()
@@ -114,6 +113,8 @@
 
     async function updateBook() {
         const id = document.getElementById("bookId").value;
+
+        console.log("更新するID:", id);
 
         if (!id) {
             showMessage("更新する本のIDを入力してください");

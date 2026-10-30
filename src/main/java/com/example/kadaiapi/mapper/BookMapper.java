@@ -17,9 +17,19 @@ public interface BookMapper {
     List<Book> findAll();
 
     @Insert("""
-        INSERT INTO books (title, author, genre)
-        VALUES (#{title}, #{author}, #{genre})
-        """)
+    <script>
+    <choose>
+        <when test="id != null">
+            INSERT INTO books (id, title, author, genre)
+            VALUES (#{id}, #{title}, #{author}, #{genre})
+        </when>
+        <otherwise>
+            INSERT INTO books (title, author, genre)
+            VALUES (#{title}, #{author}, #{genre})
+        </otherwise>
+    </choose>
+    </script>
+    """)
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Book book);
 
