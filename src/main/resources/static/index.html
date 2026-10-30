@@ -5,39 +5,51 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>本の管理API</title>
+
     <style>
         body {
             font-family: sans-serif;
             margin: 30px;
             color: #222;
         }
+
         input, button {
             padding: 8px;
             margin: 4px;
         }
+
         input {
             max-width: 220px;
         }
+
         button {
             cursor: pointer;
         }
+
         .book {
             border: 1px solid #ccc;
             padding: 12px;
             margin: 10px 0;
         }
+
         #message {
             white-space: pre-wrap;
             margin: 12px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            min-height: 24px;
         }
     </style>
 </head>
+
 <body>
+
 <h1>📚 本の管理API</h1>
 
 <h2>1. 本の登録・更新</h2>
+
 <p>ID（新規登録の場合は空欄）</p>
-<input id="bookId" type="number" placeholder="本のID">
+<input id="bookId" type="number" min="1" placeholder="本のID">
 
 <p>タイトル</p>
 <input id="title" type="text" placeholder="本のタイトル">
@@ -49,6 +61,7 @@
 <input id="genre" type="text" placeholder="技術書・小説など">
 
 <br>
+
 <button onclick="saveBook()">新規登録</button>
 <button onclick="updateBook()">更新</button>
 <button onclick="clearForm()">入力クリア</button>
@@ -62,7 +75,8 @@
 <hr>
 
 <h2>3. IDで検索・削除</h2>
-<input id="searchId" type="number" placeholder="本のID">
+
+<input id="searchId" type="number" min="1" placeholder="本のID">
 <button onclick="findBook()">IDで検索</button>
 <button onclick="deleteBook()">削除</button>
 
@@ -71,6 +85,12 @@
 <script>
     const apiUrl = "/api/books";
 
+    // メッセージ表示
+    function showMessage(message) {
+        document.getElementById("message").textContent = message;
+    }
+
+    // 入力内容を取得
     function getFormData() {
         const id = document.getElementById("bookId").value;
 
@@ -82,20 +102,40 @@
         };
     }
 
+    // 入力欄をクリア
     function clearForm() {
         document.getElementById("bookId").value = "";
         document.getElementById("title").value = "";
         document.getElementById("author").value = "";
         document.getElementById("genre").value = "";
+        showMessage("入力内容をクリアしました");
     }
 
+    // 新規登録
     async function saveBook() {
+        const data = getFormData();
+
+        if (!data.title || !data.author || !data.genre) {
+            showMessage("タイトル・著者・ジャンルを入力してください");
+            return;
+        }
+
+        if (data.id !== null && (!Number.isInteger(data.id) || data.id < 1)) {
+            showMessage("IDは1以上の整数を入力してください");
+            return;
+        }
+
         try {
             const response = await fetch(apiUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(getFormData())
+                body: JSON.stringify(data)
             });
+
+            if (response.status === 409) {
+                showMessage("ID " + data.id + " はすでに使用されています");
+                return;
+            }
 
             if (!response.ok) {
                 showMessage("登録に失敗しました（HTTP " + response.status + "）");
@@ -103,54 +143,78 @@
             }
 
             const book = await response.json();
+
             showMessage("登録しました。ID: " + book.id);
-            clearForm();
+
+            document.getElementById("bookId").value = "";
+            document.getElementById("title").value = "";
+            document.getElementById("author").value = "";
+            document.getElementById("genre").value = "";
+
             await loadBooks();
+
         } catch (error) {
             showMessage("通信エラー: " + error.message);
         }
     }
 
+    // 更新
     async function updateBook() {
         const id = document.getElementById("bookId").value;
-
-        console.log("更新するID:", id);
 
         if (!id) {
             showMessage("更新する本のIDを入力してください");
             return;
         }
 
+        const data = getFormData();
+
+        if (!data.title || !data.author || !data.genre) {
+            showMessage("タイトル・著者・ジャンルを入力してください");
+            return;
+        }
+
         try {
-            const response = await fetch(apiUrl + "/" + encodeURIComponent(id), {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(getFormData())
-            });
+            const response = await fetch(
+                apiUrl + "/" + encodeURIComponent(id),
+                {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                }
+            );
+
+            if (response.status === 404) {
+                showMessage("ID " + id + " の本は見つかりませんでした");
+                return;
+            }
 
             if (!response.ok) {
                 showMessage("更新に失敗しました（HTTP " + response.status + "）");
                 return;
             }
 
-            showMessage("更新しました");
+            showMessage("ID " + id + " の本を更新しました");
             await loadBooks();
+
         } catch (error) {
             showMessage("通信エラー: " + error.message);
         }
     }
 
+    // 一覧取得
     async function loadBooks() {
         try {
             const response = await fetch(apiUrl);
 
             if (!response.ok) {
-                showMessage("一覧の取得に失敗しました");
+                showMessage("一覧の取得に失敗しました（HTTP " + response.status + "）");
                 return;
             }
 
             const books = await response.json();
             const list = document.getElementById("bookList");
+
             list.replaceChildren();
 
             if (books.length === 0) {
@@ -174,22 +238,27 @@
 
                 const editButton = document.createElement("button");
                 editButton.textContent = "編集";
+
                 editButton.onclick = () => {
                     document.getElementById("bookId").value = book.id;
                     document.getElementById("title").value = book.title;
                     document.getElementById("author").value = book.author;
                     document.getElementById("genre").value = book.genre;
+
+                    showMessage("ID " + book.id + " の本を編集できます");
                     window.scrollTo(0, 0);
                 };
 
                 item.append(title, details, editButton);
                 list.appendChild(item);
             });
+
         } catch (error) {
             showMessage("通信エラー: " + error.message);
         }
     }
 
+    // ID検索
     async function findBook() {
         const id = document.getElementById("searchId").value;
 
@@ -203,8 +272,13 @@
                 apiUrl + "/" + encodeURIComponent(id)
             );
 
+            if (response.status === 404) {
+                showMessage("ID " + id + " の本は見つかりませんでした");
+                return;
+            }
+
             if (!response.ok) {
-                showMessage("本が見つかりません（HTTP " + response.status + "）");
+                showMessage("検索に失敗しました（HTTP " + response.status + "）");
                 return;
             }
 
@@ -215,12 +289,14 @@
             document.getElementById("author").value = book.author;
             document.getElementById("genre").value = book.genre;
 
-            showMessage("本を取得しました");
+            showMessage("ID " + id + " の本が見つかりました");
+
         } catch (error) {
             showMessage("通信エラー: " + error.message);
         }
     }
 
+    // 削除
     async function deleteBook() {
         const id = document.getElementById("searchId").value;
 
@@ -239,18 +315,27 @@
                 { method: "DELETE" }
             );
 
+            if (response.status === 404) {
+                showMessage("ID " + id + " の本は見つかりませんでした");
+                return;
+            }
+
             if (response.status === 204) {
-                showMessage("削除しました");
+                showMessage("ID " + id + " の本を削除しました");
                 await loadBooks();
             } else {
                 showMessage("削除に失敗しました（HTTP " + response.status + "）");
             }
+
         } catch (error) {
             showMessage("通信エラー: " + error.message);
         }
     }
 
+    // 最初に一覧を表示
     loadBooks();
+
 </script>
+
 </body>
 </html>
