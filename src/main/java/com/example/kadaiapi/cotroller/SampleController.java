@@ -11,7 +11,7 @@ public class SampleController {
 
     @GetMapping("/sample")
     public String sample() {
-        return "岩手観光スポット管理API!";
+        return "本管理アプリ";
     }
 
     @GetMapping("/sample/api")
